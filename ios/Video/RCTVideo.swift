@@ -139,11 +139,62 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     @objc var onTextTrackDataChanged: RCTDirectEventBlock?
 
     @objc var watermarkText: String? {
-    didSet {
-        updateWatermark()
+            didSet {
+                updateWatermark()
+            }
+        }
+    func updateWatermark() {
+        if watermarkLabel == nil {
+            let label = UILabel()
+            label.textColor = .white
+            label.backgroundColor = UIColor.black.withAlphaComponent(0.3)
+            label.font = UIFont.boldSystemFont(ofSize: 16)
+            label.textAlignment = .right
+            label.translatesAutoresizingMaskIntoConstraints = false
+            watermarkLabel = label
+            addSubview(label)
+            
+            // Pin to bottom right
+            NSLayoutConstraint.activate([
+                label.trailingAnchor.constraint(equalTo: self.trailingAnchor, constant: -8),
+                label.bottomAnchor.constraint(equalTo: self.bottomAnchor, constant: -8)
+            ])
+        }
+        watermarkLabel?.text = watermarkText
+        watermarkLabel?.isHidden = watermarkText == nil
+        
+        // Ensure it's on top
+        if let watermarkLabel = watermarkLabel {
+            bringSubviewToFront(watermarkLabel)
+        }
     }
-}
-
+    
+    func updateWatermarkForFullscreen() {
+        guard let watermarkLabel = watermarkLabel, let pvc = _playerViewController else { return }
+        if watermarkLabel.superview !== pvc.contentOverlayView {
+            watermarkLabel.removeFromSuperview()
+            pvc.contentOverlayView?.addSubview(watermarkLabel)
+            // Re-apply constraints
+            watermarkLabel.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                watermarkLabel.trailingAnchor.constraint(equalTo: pvc.contentOverlayView!.trailingAnchor, constant: -8),
+                watermarkLabel.bottomAnchor.constraint(equalTo: pvc.contentOverlayView!.bottomAnchor, constant: -8)
+            ])
+        }
+    }
+    
+    func updateWatermarkForInline() {
+        guard let watermarkLabel = watermarkLabel else { return }
+        if watermarkLabel.superview !== self {
+            watermarkLabel.removeFromSuperview()
+            self.addSubview(watermarkLabel)
+            watermarkLabel.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                watermarkLabel.trailingAnchor.constraint(equalTo: self.trailingAnchor, constant: -8),
+                watermarkLabel.bottomAnchor.constraint(equalTo: self.bottomAnchor, constant: -8)
+            ])
+        }
+    }
     @objc
     func _onPictureInPictureEnter() {
         onPictureInPictureStatusChanged?(["isActive": NSNumber(value: true)])
@@ -1385,7 +1436,9 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             for subview in _playerViewController.contentOverlayView?.subviews ?? [] {
                 subview.frame = bounds
             }
-
+            if let watermarkLabel = watermarkLabel {
+                self.bringSubviewToFront(watermarkLabel)
+            }
             // ensure preferredContentSize is set when in fullscreen
             if _fullscreenPlayerPresented {
                 _playerViewController.preferredContentSize = CGSize(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
@@ -1698,6 +1751,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     }
 
     func handleWillEnterFullScreen() {
+        updateWatermarkForFullscreen()
         self.onVideoFullscreenPlayerWillPresent?(["target": self.reactTag as Any])
     }
 
@@ -1710,60 +1764,11 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     }
 
     func handleDidExitFullScreen() {
+        updateWatermarkForInline()
         self.onVideoFullscreenPlayerDidDismiss?(["target": self.reactTag as Any])
     }
 
-    private func updateWatermark() {
-    if watermarkLabel == nil {
-        let label = UILabel()
-        label.textColor = .white
-        label.backgroundColor = UIColor.black.withAlphaComponent(0.3)
-        label.font = UIFont.boldSystemFont(ofSize: 16)
-        label.textAlignment = .right
-        label.translatesAutoresizingMaskIntoConstraints = false
-        watermarkLabel = label
-        addSubview(label)
-        // Pin to bottom right
-        NSLayoutConstraint.activate([
-            label.trailingAnchor.constraint(equalTo: self.trailingAnchor, constant: -8),
-            label.bottomAnchor.constraint(equalTo: self.bottomAnchor, constant: -8)
-        ])
-    }
-    watermarkLabel?.text = watermarkText
-    watermarkLabel?.isHidden = watermarkText == nil
-}
-    override func layoutSubviews() {
-    super.layoutSubviews()
-    if let watermarkLabel = watermarkLabel {
-    self.bringSubviewToFront(watermarkLabel)
-}
-}
-func updateWatermarkForFullscreen() {
-    guard let watermarkLabel, let pvc = _playerViewController else { return }
-    if watermarkLabel.superview !== pvc.contentOverlayView {
-        watermarkLabel.removeFromSuperview()
-        pvc.contentOverlayView?.addSubview(watermarkLabel)
-        // Re-apply constraints as above, but to contentOverlayView
-        watermarkLabel.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            watermarkLabel.trailingAnchor.constraint(equalTo: pvc.contentOverlayView!.trailingAnchor, constant: -8),
-            watermarkLabel.bottomAnchor.constraint(equalTo: pvc.contentOverlayView!.bottomAnchor, constant: -8)
-        ])
-    }
-}
-private func updateWatermarkForInline() {
-    guard let watermarkLabel = watermarkLabel else { return }
-    // Only move if it's not already in the correct superview
-    if watermarkLabel.superview !== self {
-        watermarkLabel.removeFromSuperview()
-        self.addSubview(watermarkLabel)
-        watermarkLabel.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            watermarkLabel.trailingAnchor.constraint(equalTo: self.trailingAnchor, constant: -8),
-            watermarkLabel.bottomAnchor.constraint(equalTo: self.bottomAnchor, constant: -8)
-        ])
-    }
-}
+  
     @objc
     func handleDidFailToFinishPlaying(notification: NSNotification!) {
         guard onVideoError != nil else { return }
