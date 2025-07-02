@@ -29,6 +29,10 @@ import android.graphics.Typeface
 import android.widget.TextView
 import android.text.TextUtils
 
+import android.os.Handler
+import android.os.Looper
+import kotlin.random.Random
+
 @UnstableApi
 class ExoPlayerView(private val context: Context) :
     FrameLayout(context, null, 0),
@@ -51,6 +55,9 @@ class ExoPlayerView(private val context: Context) :
     private var watermarkTextView: TextView? = null
     private var watermarkText: String? = null
 
+    // Watermark random movement
+    private var watermarkHandler: Handler? = null
+    private var watermarkRunnable: Runnable? = null
 
     @ViewType.ViewType
     private var viewType = ViewType.VIEW_TYPE_SURFACE
@@ -159,14 +166,15 @@ class ExoPlayerView(private val context: Context) :
     fun setWatermarkText(text: String?) {
     watermarkText = text
     if (TextUtils.isEmpty(text)) {
+        stopWatermarkMovement()
         watermarkTextView?.let { removeView(it) }
         watermarkTextView = null
     } else {
         if (watermarkTextView == null) {
             watermarkTextView = TextView(context).apply {
                 setTextColor(Color.RED)
-                setBackgroundColor(Color.parseColor("#66000000"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                //setBackgroundColor(Color.parseColor("#66000000"))
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
                 setTypeface(Typeface.DEFAULT_BOLD)
                 setPadding(8, 4, 8, 4)
                 val params = FrameLayout.LayoutParams(
@@ -182,8 +190,54 @@ class ExoPlayerView(private val context: Context) :
         watermarkTextView?.text = text
         watermarkTextView?.visibility = VISIBLE
         watermarkTextView?.bringToFront()
+        startWatermarkMovement()
     }
 }
+
+    private fun startWatermarkMovement() {
+        if (watermarkHandler == null) {
+            watermarkHandler = Handler(Looper.getMainLooper())
+        }
+        // Remove any existing runnable to avoid duplicates
+        watermarkRunnable?.let { watermarkHandler?.removeCallbacks(it) }
+        watermarkRunnable = object : Runnable {
+            override fun run() {
+                moveWatermarkRandomly()
+                watermarkHandler?.postDelayed(this, 1000)
+            }
+        }
+        watermarkHandler?.post(watermarkRunnable!!)
+    }
+    private fun stopWatermarkMovement() {
+        watermarkRunnable?.let { watermarkHandler?.removeCallbacks(it) }
+        watermarkRunnable = null
+    }
+    private fun moveWatermarkRandomly() {
+        val wmView = watermarkTextView ?: return
+        val parentWidth = this.width
+        val parentHeight = this.height
+        if (parentWidth == 0 || parentHeight == 0) return
+
+        wmView.measure(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED)
+        val wmWidth = wmView.measuredWidth
+        val wmHeight = wmView.measuredHeight
+
+        val maxLeft = parentWidth - wmWidth
+        val maxTop = parentHeight - wmHeight
+
+        if (maxLeft <= 0 || maxTop <= 0) return
+
+        val randomLeft = Random.nextInt(0, maxLeft)
+        val randomTop = Random.nextInt(0, maxTop)
+
+        val params = wmView.layoutParams
+        if (params is FrameLayout.LayoutParams) {
+            params.leftMargin = randomLeft
+            params.topMargin = randomTop
+            params.gravity = Gravity.TOP or Gravity.START
+            wmView.layoutParams = params
+        }
+    }
 
     //fun getCurrentWatermarkText(): String? = watermarkText
 
