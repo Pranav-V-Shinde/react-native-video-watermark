@@ -172,9 +172,9 @@ class ExoPlayerView(private val context: Context) :
     } else {
         if (watermarkTextView == null) {
             watermarkTextView = TextView(context).apply {
-                setTextColor(Color.RED)
+                setTextColor(Color.WHITE)
                 //setBackgroundColor(Color.parseColor("#66000000"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
                 setTypeface(Typeface.DEFAULT_BOLD)
                 setPadding(8, 4, 8, 4)
                 val params = FrameLayout.LayoutParams(

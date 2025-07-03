@@ -60,6 +60,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     private var _presentingViewController: UIViewController?
     private var _startPosition: Float64 = -1
     private var watermarkLabel: UILabel?
+    private var watermarkTimer: Timer?
 
     var _disableAudioSessionManagement: Bool = false
     var _showNotificationControls = false
@@ -147,18 +148,18 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         if watermarkLabel == nil {
             let label = UILabel()
             label.textColor = .white
-            label.backgroundColor = UIColor.black.withAlphaComponent(0.3)
-            label.font = UIFont.boldSystemFont(ofSize: 16)
+            //label.backgroundColor = UIColor.black.withAlphaComponent(0.3)
+            label.font = UIFont.boldSystemFont(ofSize: 14)
             label.textAlignment = .right
             label.translatesAutoresizingMaskIntoConstraints = false
             watermarkLabel = label
             addSubview(label)
             
             // Pin to bottom right
-            NSLayoutConstraint.activate([
-                label.trailingAnchor.constraint(equalTo: self.trailingAnchor, constant: -8),
-                label.bottomAnchor.constraint(equalTo: self.bottomAnchor, constant: -8)
-            ])
+            // NSLayoutConstraint.activate([
+            //     label.trailingAnchor.constraint(equalTo: self.trailingAnchor, constant: -8),
+            //     label.bottomAnchor.constraint(equalTo: self.bottomAnchor, constant: -8)
+            // ])
         }
         watermarkLabel?.text = watermarkText
         watermarkLabel?.isHidden = watermarkText == nil
@@ -167,6 +168,44 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         if let watermarkLabel = watermarkLabel {
             bringSubviewToFront(watermarkLabel)
         }
+
+        if watermarkText != nil {
+            startWatermarkTimer()
+        } else {
+            stopWatermarkTimer()
+            watermarkLabel?.removeFromSuperview()
+            watermarkLabel = nil
+        }
+    }
+
+    private func startWatermarkTimer() {
+        stopWatermarkTimer()
+        watermarkTimer = Timer.scheduledTimer(timeInterval: 1,
+                                              target: self,
+                                              selector: #selector(moveWatermarkRandomly),
+                                              userInfo: nil,
+                                              repeats: true)
+        RunLoop.main.add(watermarkTimer!, forMode: .common)
+    }
+
+    private func stopWatermarkTimer() {
+        watermarkTimer?.invalidate()
+        watermarkTimer = nil
+    }
+
+    @objc
+    private func moveWatermarkRandomly() {
+        guard let label = watermarkLabel, let superview = label.superview else { return }
+        guard !label.isHidden else { return }
+
+        let labelSize = label.intrinsicContentSize
+        let maxX = max(0, superview.bounds.width - labelSize.width)
+        let maxY = max(0, superview.bounds.height - labelSize.height)
+        guard maxX > 0, maxY > 0 else { return }
+
+        let randomX = CGFloat.random(in: 0...maxX)
+        let randomY = CGFloat.random(in: 0...maxY)
+        label.frame = CGRect(x: randomX, y: randomY, width: labelSize.width, height: labelSize.height)
     }
     
     func updateWatermarkForFullscreen() {
@@ -181,6 +220,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
                 watermarkLabel.bottomAnchor.constraint(equalTo: pvc.contentOverlayView!.bottomAnchor, constant: -8)
             ])
         }
+        moveWatermarkRandomly()
     }
     
     func updateWatermarkForInline() {
@@ -194,6 +234,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
                 watermarkLabel.bottomAnchor.constraint(equalTo: self.bottomAnchor, constant: -8)
             ])
         }
+        moveWatermarkRandomly()
     }
     @objc
     func _onPictureInPictureEnter() {
@@ -343,6 +384,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     }
 
     deinit {
+        stopWatermarkTimer()
         #if USE_GOOGLE_IMA
             _imaAdsManager.releaseAds()
             _imaAdsManager = nil
@@ -1489,7 +1531,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         _eventDispatcher = nil
         // swiftlint:disable:next notification_center_detachment
         NotificationCenter.default.removeObserver(self)
-
+        stopWatermarkTimer()
         super.removeFromSuperview()
     }
 

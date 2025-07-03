@@ -1,7 +1,7 @@
 {
   "name": "react-native-video-watermark-fork",
-  "version": "6.15.5",
-  "description": "A <Video /> element for react-native. Fork of react-native-video to add watermark functionality",
+  "version": "6.15.8",
+  "description": "A <Video /> element for react-native. Fork of react-native-video with added watermark text functionality",
   "main": "lib/index",
   "source": "src/index.ts",
   "react-native": "src/index",
